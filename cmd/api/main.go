@@ -6,8 +6,11 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
+	"strconv"
 	"sync"
 
+	"github.com/joho/godotenv"
+	"github.com/mofodox/anymail/internal/data"
 	"github.com/mofodox/anymail/internal/database"
 	"github.com/mofodox/anymail/internal/smtp"
 	"github.com/mofodox/anymail/internal/version"
@@ -15,6 +18,12 @@ import (
 
 func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags|log.Llongfile)
+
+	if err := godotenv.Load(); err != nil {
+		logger.Fatal(err)
+	} else {
+		logger.Println("successfully loaded .env file")
+	}
 
 	err := run(logger)
 	if err != nil {
@@ -43,6 +52,7 @@ type application struct {
 	config config
 	db     *database.DB
 	logger *log.Logger
+	models data.Models
 	mailer *smtp.Mailer
 	wg     sync.WaitGroup
 }
@@ -50,15 +60,17 @@ type application struct {
 func run(logger *log.Logger) error {
 	var cfg config
 
+	smtpPort, _ := strconv.Atoi(os.Getenv("SMTP_PORT_MAILTRAP"))
+
 	flag.StringVar(&cfg.baseURL, "base-url", "http://localhost:4444", "base URL for the application")
 	flag.IntVar(&cfg.httpPort, "http-port", 4444, "port to listen on for HTTP requests")
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "user:pass@localhost:5432/db", "postgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("DB_DSN"), "postgreSQL DSN")
 	flag.BoolVar(&cfg.db.automigrate, "db-automigrate", true, "run migrations on startup")
-	flag.StringVar(&cfg.smtp.host, "smtp-host", "example.smtp.host", "smtp host")
-	flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "smtp port")
-	flag.StringVar(&cfg.smtp.username, "smtp-username", "example_username", "smtp username")
-	flag.StringVar(&cfg.smtp.password, "smtp-password", "pa55word", "smtp password")
-	flag.StringVar(&cfg.smtp.from, "smtp-from", "Example Name <no-reply@example.org>", "smtp sender")
+	flag.StringVar(&cfg.smtp.host, "smtp-host", os.Getenv("SMTP_HOST_MAILTRAP"), "smtp host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", smtpPort, "smtp port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", os.Getenv("SMTP_USERNAME_MAILTRAP"), "smtp username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", os.Getenv("SMTP_PASSWORD_MAILTRAP"), "smtp password")
+	flag.StringVar(&cfg.smtp.from, "smtp-from", "MyTengah <no-reply@mytengah.sg>", "smtp sender")
 	flag.BoolVar(&cfg.version, "version", false, "display version and exit")
 
 	flag.Parse()
@@ -80,6 +92,7 @@ func run(logger *log.Logger) error {
 		config: cfg,
 		db:     db,
 		logger: logger,
+		models: data.NewModels(db),
 		mailer: mailer,
 	}
 
