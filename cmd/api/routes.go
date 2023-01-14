@@ -14,5 +14,7 @@ func (app *application) routes() http.Handler {
 
 	mux.HandlerFunc("GET", "/status", app.status)
 
+	mux.HandlerFunc("POST", "/send-email/mytengahsgmtpp", app.sendEmailMyTengahMTPP)
+
 	return app.recoverPanic(mux)
 }
